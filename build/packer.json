@@ -1,0 +1,23 @@
+{
+  "builders": [
+    {
+      "discard": true,
+      "image": "ubuntu:14.04",
+      "name": "linux_amd64",
+      "type": "docker"
+    }
+  ],
+  "provisioners": [
+    {
+      "script": "build.sh",
+      "type": "shell"
+    }
+  ],
+  "push": {
+    "name": "phinze/terraform-build-test"
+  },
+  "variables": {
+    "ref": "master",
+    "vcs": "true"
+  }
+}
