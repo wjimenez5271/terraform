@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -85,6 +86,7 @@ func Provider() terraform.ResourceProvider {
 				Required: true,
 				DefaultFunc: func() (interface{}, error) {
 					return getCredDefault(nil, func() string {
+						log.Printf("\n***\nin default fnc for key\n***\n")
 						return credVal.AccessKeyID
 					})
 				},
@@ -96,6 +98,7 @@ func Provider() terraform.ResourceProvider {
 				Required: true,
 				DefaultFunc: func() (interface{}, error) {
 					return getCredDefault(nil, func() string {
+						log.Printf("\n***\nin default fnc for secret\n***\n")
 						return credVal.SecretAccessKey
 					})
 				},
@@ -107,6 +110,7 @@ func Provider() terraform.ResourceProvider {
 				Optional: true,
 				DefaultFunc: func() (interface{}, error) {
 					return getCredDefault("", func() string {
+						log.Printf("\n***\nin default fnc for TOKEN\n***\n")
 						return credVal.SessionToken
 					})
 				},
@@ -305,6 +309,7 @@ func init() {
 }
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
+	log.Printf("\n---\n[DEBUG] IN ProviderConfig\n---\n")
 	config := Config{
 		AccessKey:        d.Get("access_key").(string),
 		SecretKey:        d.Get("secret_key").(string),
@@ -314,6 +319,8 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 		DynamoDBEndpoint: d.Get("dynamodb_endpoint").(string),
 		KinesisEndpoint:  d.Get("kinesis_endpoint").(string),
 	}
+
+	log.Printf("\n---\n[DEBUG]\n---\nConfig: %#v\n---\n", config)
 
 	if v, ok := d.GetOk("allowed_account_ids"); ok {
 		config.AllowedAccountIds = v.(*schema.Set).List()
