@@ -69,6 +69,12 @@ func resourceArmVirtualMachine() *schema.Resource {
 				Computed: true,
 			},
 
+			"license_type": &schema.Schema{
+				Type:     schema.TypeString,
+				Optional: true,
+				Computed: true,
+			},
+
 			"vm_size": &schema.Schema{
 				Type:     schema.TypeString,
 				Required: true,
@@ -174,7 +180,7 @@ func resourceArmVirtualMachine() *schema.Resource {
 				Required: true,
 				Elem: &schema.Resource{
 					Schema: map[string]*schema.Schema{
-						"compute_name": &schema.Schema{
+						"computer_name": &schema.Schema{
 							Type:     schema.TypeString,
 							Optional: true,
 							Computed: true,
@@ -195,14 +201,125 @@ func resourceArmVirtualMachine() *schema.Resource {
 							Optional: true,
 							Computed: true,
 						},
+					},
+				},
+				Set: resourceArmVirtualMachineStorageOsProfileHash,
+			},
 
-						"lun": &schema.Schema{
-							Type:     schema.TypeInt,
-							Required: true,
+			"os_profile_windows_config": &schema.Schema{
+				Type:     schema.TypeSet,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"provision_vm_agent": &schema.Schema{
+							Type:     schema.TypeBool,
+							Optional: true,
+						},
+						"enable_automatic_upgrades": &schema.Schema{
+							Type:     schema.TypeBool,
+							Optional: true,
+						},
+						"winrm": &schema.Schema{
+							Type:     schema.TypeSet,
+							Optional: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"protocol": &schema.Schema{
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"certificate_url": &schema.Schema{
+										Type:     schema.TypeString,
+										Optional: true,
+									},
+								},
+							},
+						},
+						"additional_unattend_config": &schema.Schema{
+							Type:     schema.TypeSet,
+							Optional: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"pass": &schema.Schema{
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"component": &schema.Schema{
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"setting_name": &schema.Schema{
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"content": &schema.Schema{
+										Type:     schema.TypeString,
+										Required: true,
+									},
+								},
+							},
 						},
 					},
 				},
-				Set: resourceArmVirtualMachineStorageDataDiskHash,
+			},
+
+			"os_profile_linux_config": &schema.Schema{
+				Type:     schema.TypeSet,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"disable_password_authentication": &schema.Schema{
+							Type:     schema.TypeString,
+							Required: true,
+						},
+						"ssh_keys": &schema.Schema{
+							Type:     schema.TypeSet,
+							Required: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"path": &schema.Schema{
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"key_data": &schema.Schema{
+										Type:     schema.TypeString,
+										Optional: true,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+
+			"os_profile_secrets": &schema.Schema{
+				Type:     schema.TypeSet,
+				Optional: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"source_vault_id": &schema.Schema{
+							Type:     schema.TypeString,
+							Required: true,
+						},
+
+						"vault_certificates": &schema.Schema{
+							Type:     schema.TypeSet,
+							Optional: true,
+							Elem: &schema.Resource{
+								Schema: map[string]*schema.Schema{
+									"certificate_url": &schema.Schema{
+										Type:     schema.TypeString,
+										Required: true,
+									},
+									"certificate_store": &schema.Schema{
+										Type:     schema.TypeString,
+										Optional: true,
+									},
+								},
+							},
+						},
+					},
+				},
 			},
 
 			"network_interface_ids": &schema.Schema{
@@ -224,14 +341,11 @@ func resourceArmVirtualMachineCreate(d *schema.ResourceData, meta interface{}) e
 	name := d.Get("name").(string)
 	location := d.Get("location").(string)
 	resGroup := d.Get("resource_group_name").(string)
-	networkProfile := expandAzureRmVirtualMachineNetworkProfile(d)
+
 	osDisk, err := expandAzureRmVirtualMachineOsDisk(d)
 	if err != nil {
 		return err
 	}
-
-	vmSize := d.Get("vm_size").(string)
-
 	storageProfile := compute.StorageProfile{
 		OsDisk: osDisk,
 	}
@@ -252,6 +366,8 @@ func resourceArmVirtualMachineCreate(d *schema.ResourceData, meta interface{}) e
 		storageProfile.DataDisks = &dataDisks
 	}
 
+	networkProfile := expandAzureRmVirtualMachineNetworkProfile(d)
+	vmSize := d.Get("vm_size").(string)
 	properties := compute.VirtualMachineProperties{
 		NetworkProfile: &networkProfile,
 		HardwareProfile: &compute.HardwareProfile{
@@ -259,6 +375,12 @@ func resourceArmVirtualMachineCreate(d *schema.ResourceData, meta interface{}) e
 		},
 		StorageProfile: &storageProfile,
 	}
+
+	osProfile, err := expandAzureRmVirtualMachineOsProfile(d)
+	if err != nil {
+		return err
+	}
+	properties.OsProfile = osProfile
 
 	if v, ok := d.GetOk("availability_set_id"); ok {
 		availabilitySet := v.(string)
@@ -353,6 +475,14 @@ func resourceArmVirtualMachineStorageImageReferenceHash(v interface{}) int {
 	return hashcode.String(buf.String())
 }
 
+func resourceArmVirtualMachineStorageOsProfileHash(v interface{}) int {
+	var buf bytes.Buffer
+	m := v.(map[string]interface{})
+	buf.WriteString(fmt.Sprintf("%s-", m["admin_username"].(string)))
+	buf.WriteString(fmt.Sprintf("%s-", m["admin_password"].(string)))
+	return hashcode.String(buf.String())
+}
+
 func resourceArmVirtualMachineStorageDataDiskHash(v interface{}) int {
 	var buf bytes.Buffer
 	m := v.(map[string]interface{})
@@ -393,6 +523,202 @@ func expandAzureRmVirtualMachinePlan(d *schema.ResourceData) (*compute.Plan, err
 		Name:      &name,
 		Product:   &product,
 	}, nil
+}
+
+func expandAzureRmVirtualMachineOsProfile(d *schema.ResourceData) (*compute.OSProfile, error) {
+	osProfiles := d.Get("os_profile").(*schema.Set).List()
+
+	if len(osProfiles) != 1 {
+		return nil, fmt.Errorf("[ERROR] Only 1 OS Profile Can be specified for an Azure RM Virtual Machine")
+	}
+
+	osProfile := osProfiles[0].(map[string]interface{})
+
+	adminUsername := osProfile["admin_username"].(string)
+	adminPassword := osProfile["admin_password"].(string)
+
+	profile := &compute.OSProfile{
+		AdminUsername:        &adminUsername,
+		AdminPassword:        &adminPassword,
+		WindowsConfiguration: &compute.WindowsConfiguration{},
+		LinuxConfiguration:   &compute.LinuxConfiguration{},
+	}
+
+	if _, ok := d.GetOk("os_profile_windows_config"); ok {
+		winConfig, err := expandAzureRmVirtualMachineOsProfileWindowsConfig(d)
+		if err != nil {
+			return nil, err
+		}
+		if winConfig != nil {
+			profile.WindowsConfiguration = winConfig
+		}
+	}
+
+	if _, ok := d.GetOk("os_profile_linux_config"); ok {
+		linuxConfig, err := expandAzureRmVirtualMachineOsProfileLinuxConfig(d)
+		if err != nil {
+			return nil, err
+		}
+		if linuxConfig != nil {
+			profile.LinuxConfiguration = linuxConfig
+		}
+	}
+
+	if _, ok := d.GetOk("os_profile_secrets"); ok {
+		secrets := expandAzureRmVirtualMachineOsProfileSecrets(d)
+		if secrets != nil {
+			profile.Secrets = secrets
+		}
+	}
+
+	if v := osProfile["computer_name"].(string); v != "" {
+		profile.ComputerName = &v
+	}
+	if v := osProfile["custom_data"].(string); v != "" {
+		profile.CustomData = &v
+	}
+
+	return profile, nil
+}
+
+func expandAzureRmVirtualMachineOsProfileSecrets(d *schema.ResourceData) *[]compute.VaultSecretGroup {
+	secretsConfig := d.Get("os_profile_secrets").(*schema.Set).List()
+	secrets := make([]compute.VaultSecretGroup, 0, len(secretsConfig))
+
+	for _, secretConfig := range secretsConfig {
+		config := secretConfig.(map[string]interface{})
+		sourceVaultId := config["source_vault_id"].(string)
+
+		vaultSecretGroup := compute.VaultSecretGroup{
+			SourceVault: &compute.SubResource{
+				ID: &sourceVaultId,
+			},
+		}
+
+		if v := config["vault_certificates"]; v != nil {
+			certsConfig := v.(*schema.Set).List()
+			certs := make([]compute.VaultCertificate, 0, len(certsConfig))
+			for _, certConfig := range certsConfig {
+				config := certConfig.(map[string]interface{})
+
+				certUrl := config["certificate_url"].(string)
+				cert := compute.VaultCertificate{
+					CertificateURL: &certUrl,
+				}
+				if v := config["certificate_store"].(string); v != "" {
+					cert.CertificateStore = &v
+				}
+
+				certs = append(certs, cert)
+			}
+			vaultSecretGroup.VaultCertificates = &certs
+		}
+
+		secrets = append(secrets, vaultSecretGroup)
+	}
+
+	return &secrets
+}
+
+func expandAzureRmVirtualMachineOsProfileLinuxConfig(d *schema.ResourceData) (*compute.LinuxConfiguration, error) {
+	osProfilesLinuxConfig := d.Get("os_profile_linux_config").(*schema.Set).List()
+
+	if len(osProfilesLinuxConfig) != 1 {
+		return nil, fmt.Errorf("[ERROR] Only 1 OS Profile Linux Config Can be specified for an Azure RM Virtual Machine")
+	}
+
+	linuxConfig := osProfilesLinuxConfig[0].(map[string]interface{})
+	disablePasswordAuth := linuxConfig["disable_password_authentication"].(bool)
+
+	config := &compute.LinuxConfiguration{
+		DisablePasswordAuthentication: &disablePasswordAuth,
+	}
+
+	linuxKeys := linuxConfig["ssh_keys"].(*schema.Set).List()
+	sshPublicKeys := make([]compute.SSHPublicKey, 0, len(linuxKeys))
+	for _, key := range linuxKeys {
+		sshKey := key.(map[string]interface{})
+		path := sshKey["path"].(string)
+		keyData := sshKey["key_data"].(string)
+
+		sshPublicKey := compute.SSHPublicKey{
+			Path:    &path,
+			KeyData: &keyData,
+		}
+
+		sshPublicKeys = append(sshPublicKeys, sshPublicKey)
+	}
+
+	config.SSH = &compute.SSHConfiguration{
+		PublicKeys: &sshPublicKeys,
+	}
+
+	return config, nil
+}
+
+func expandAzureRmVirtualMachineOsProfileWindowsConfig(d *schema.ResourceData) (*compute.WindowsConfiguration, error) {
+	osProfilesWindowsConfig := d.Get("os_profile_windows_config").(*schema.Set).List()
+
+	if len(osProfilesWindowsConfig) != 1 {
+		return nil, fmt.Errorf("[ERROR] Only 1 OS Profile Windows Config Can be specified for an Azure RM Virtual Machine")
+	}
+
+	osProfileConfig := osProfilesWindowsConfig[0].(map[string]interface{})
+	config := &compute.WindowsConfiguration{}
+
+	if v := osProfileConfig["provision_vm_agent"]; v != nil {
+		provision := v.(bool)
+		config.ProvisionVMAgent = &provision
+	}
+
+	if v := osProfileConfig["enable_automatic_upgrades"]; v != nil {
+		update := v.(bool)
+		config.EnableAutomaticUpdates = &update
+	}
+
+	if v := osProfileConfig["winrm"]; v != nil {
+		winRm := v.(*schema.Set).List()
+		winRmListners := make([]compute.WinRMListener, 0, len(winRm))
+		for _, winRmConfig := range winRm {
+			config := winRmConfig.(map[string]interface{})
+
+			protocol := config["protocol"].(string)
+			winRmListner := compute.WinRMListener{
+				Protocol: compute.ProtocolTypes(protocol),
+			}
+			if v := config["certificate_url"].(string); v != "" {
+				winRmListner.CertificateURL = &v
+			}
+
+			winRmListners = append(winRmListners, winRmListner)
+		}
+		config.WinRM = &compute.WinRMConfiguration{
+			Listeners: &winRmListners,
+		}
+	}
+	if v := osProfileConfig["additional_unattend_config"]; v != nil {
+		additionalConfig := v.(*schema.Set).List()
+		additionalConfigContent := make([]compute.AdditionalUnattendContent, 0, len(additionalConfig))
+		for _, addConfig := range additionalConfig {
+			config := addConfig.(map[string]interface{})
+			pass := config["pass"].(string)
+			component := config["component"].(string)
+			settingName := config["setting_name"].(string)
+			content := config["content"].(string)
+
+			addContent := compute.AdditionalUnattendContent{
+				PassName:      compute.PassNames(pass),
+				ComponentName: compute.ComponentNames(component),
+				SettingName:   compute.SettingNames(settingName),
+				Content:       &content,
+			}
+
+			additionalConfigContent = append(additionalConfigContent, addContent)
+		}
+
+		config.AdditionalUnattendContent = &additionalConfigContent
+	}
+	return config, nil
 }
 
 func expandAzureRmVirtualMachineDataDisk(d *schema.ResourceData) ([]compute.DataDisk, error) {
@@ -474,7 +800,7 @@ func expandAzureRmVirtualMachineOsDisk(d *schema.ResourceData) (*compute.OSDisk,
 	disk := disks[0].(map[string]interface{})
 
 	name := disk["name"].(string)
-	vhdURI := disk["vhd_url"].(string)
+	vhdURI := disk["vhd_uri"].(string)
 	createOption := disk["create_option"].(string)
 
 	osDisk := &compute.OSDisk{

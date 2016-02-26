@@ -125,5 +125,11 @@ resource "azurerm_virtual_machine" "test" {
         caching = "ReadWrite"
         create_option = "FromImage"
     }
+
+    os_profile {
+	computer_name = "my_computer"
+	admin_username = "testadmin"
+	admin_password = "Password1234!"
+    }
 }
 `
