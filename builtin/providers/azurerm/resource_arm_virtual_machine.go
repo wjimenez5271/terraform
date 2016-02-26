@@ -224,42 +224,46 @@ func resourceArmVirtualMachineCreate(d *schema.ResourceData, meta interface{}) e
 	name := d.Get("name").(string)
 	location := d.Get("location").(string)
 	resGroup := d.Get("resource_group_name").(string)
-	network_profile := expandAzureRmVirtualMachineNetworkProfile(d)
-	os_disk := expandAzureRmVirtualMachineOsDisk(d)
-	vm_size := d.Get("vm_size").(string)
+	networkProfile := expandAzureRmVirtualMachineNetworkProfile(d)
+	osDisk, err := expandAzureRmVirtualMachineOsDisk(d)
+	if err != nil {
+		return err
+	}
 
-	storage_profile := compute.StorageProfile{
-		OsDisk: &os_disk,
+	vmSize := d.Get("vm_size").(string)
+
+	storageProfile := compute.StorageProfile{
+		OsDisk: osDisk,
 	}
 
 	if _, ok := d.GetOk("storage_image_reference"); ok {
-		image_ref, err := expandAzureRmVirtualMachineImageReference(d)
+		imageRef, err := expandAzureRmVirtualMachineImageReference(d)
 		if err != nil {
 			return err
 		}
-		storage_profile.ImageReference = &image_ref
+		storageProfile.ImageReference = imageRef
 	}
 
 	if _, ok := d.GetOk("storage_data_disk"); ok {
-		data_disks, err := expandAzureRmVirtualMachineDataDisk(d)
+		dataDisks, err := expandAzureRmVirtualMachineDataDisk(d)
 		if err != nil {
 			return err
 		}
-		storage_profile.DataDisks = &data_disks
+		storageProfile.DataDisks = &dataDisks
 	}
 
 	properties := compute.VirtualMachineProperties{
-		NetworkProfile: &network_profile,
+		NetworkProfile: &networkProfile,
 		HardwareProfile: &compute.HardwareProfile{
-			VMSize: compute.VirtualMachineSizeTypes(vm_size),
+			VMSize: compute.VirtualMachineSizeTypes(vmSize),
 		},
-		StorageProfile: &storage_profile,
+		StorageProfile: &storageProfile,
 	}
 
 	if v, ok := d.GetOk("availability_set_id"); ok {
-		availability_set := v.(string)
+		availabilitySet := v.(string)
 		availSet := compute.SubResource{
-			ID: &availability_set,
+			ID: &availabilitySet,
 		}
 
 		properties.AvailabilitySet = &availSet
@@ -272,16 +276,15 @@ func resourceArmVirtualMachineCreate(d *schema.ResourceData, meta interface{}) e
 	}
 
 	if _, ok := d.GetOk("plan"); ok {
-
 		plan, err := expandAzureRmVirtualMachinePlan(d)
 		if err != nil {
 			return err
 		}
 
-		vm.Plan = &plan
+		vm.Plan = plan
 	}
 
-	_, err := vmClient.CreateOrUpdate(resGroup, name, vm)
+	_, err = vmClient.CreateOrUpdate(resGroup, name, vm)
 	if err != nil {
 		return err
 	}
@@ -372,27 +375,24 @@ func resourceArmVirtualMachineStorageOsDiskHash(v interface{}) int {
 	return hashcode.String(buf.String())
 }
 
-func expandAzureRmVirtualMachinePlan(d *schema.ResourceData) (compute.Plan, error) {
-	planconfig := d.Get("plan").([]interface{})
+func expandAzureRmVirtualMachinePlan(d *schema.ResourceData) (*compute.Plan, error) {
+	planConfigs := d.Get("plan").(*schema.Set).List()
 
-	if len(planconfig) == 1 {
-		publisher := planconfig[0]["publisher"].(string)
-		name := planconfig[0]["name"].(string)
-		product := planconfig[0]["product"].(string)
-
-		plan := compute.Plan{
-			Publisher: &publisher,
-			Name:      &name,
-			Product:   &product,
-		}
-
-		return plan, nil
-
-	} else {
+	if len(planConfigs) != 1 {
 		return nil, fmt.Errorf("Cannot specify more than one plan.")
 	}
 
-	return nil, nil
+	planConfig := planConfigs[0].(map[string]interface{})
+
+	publisher := planConfig["publisher"].(string)
+	name := planConfig["name"].(string)
+	product := planConfig["product"].(string)
+
+	return &compute.Plan{
+		Publisher: &publisher,
+		Name:      &name,
+		Product:   &product,
+	}, nil
 }
 
 func expandAzureRmVirtualMachineDataDisk(d *schema.ResourceData) ([]compute.DataDisk, error) {
@@ -423,29 +423,26 @@ func expandAzureRmVirtualMachineDataDisk(d *schema.ResourceData) ([]compute.Data
 	return data_disks, nil
 }
 
-func expandAzureRmVirtualMachineImageReference(d *schema.ResourceData) (compute.ImageReference, error) {
-	ws := d.Get("storage_image_reference").([]interface{})
+func expandAzureRmVirtualMachineImageReference(d *schema.ResourceData) (*compute.ImageReference, error) {
+	storageImageRefs := d.Get("storage_image_reference").(*schema.Set).List()
 
-	if len(ws) == 1 {
-		publisher := ws[0]["publisher"].(string)
-		offer := ws[0]["offer"].(string)
-		sku := ws[0]["sku"].(string)
-		version := ws[0]["version"].(string)
-
-		image_reference := compute.ImageReference{
-			Publisher: &publisher,
-			Offer:     &offer,
-			Sku:       &sku,
-			Version:   &version,
-		}
-
-		return image_reference, nil
-
-	} else {
+	if len(storageImageRefs) != 1 {
 		return nil, fmt.Errorf("Cannot specify more than one storage_image_reference.")
 	}
 
-	return nil, nil
+	storageImageRef := storageImageRefs[0].(map[string]interface{})
+
+	publisher := storageImageRef["publisher"].(string)
+	offer := storageImageRef["offer"].(string)
+	sku := storageImageRef["sku"].(string)
+	version := storageImageRef["version"].(string)
+
+	return &compute.ImageReference{
+		Publisher: &publisher,
+		Offer:     &offer,
+		Sku:       &sku,
+		Version:   &version,
+	}, nil
 }
 
 func expandAzureRmVirtualMachineNetworkProfile(d *schema.ResourceData) compute.NetworkProfile {
@@ -467,28 +464,30 @@ func expandAzureRmVirtualMachineNetworkProfile(d *schema.ResourceData) compute.N
 	return network_profile
 }
 
-func expandAzureRmVirtualMachineOsDisk(d *schema.ResourceData) compute.OSDisk {
+func expandAzureRmVirtualMachineOsDisk(d *schema.ResourceData) (*compute.OSDisk, error) {
 	disks := d.Get("storage_os_disk").(*schema.Set).List()
-	if len(disks) > 1 {
-		return fmt.Errorf("[ERROR] Only 1 OS Disk Can be specified for an Azure RM Virtual Machine")
+
+	if len(disks) != 1 {
+		return nil, fmt.Errorf("[ERROR] Only 1 OS Disk Can be specified for an Azure RM Virtual Machine")
 	}
 
-	compute.DataDisk{}
+	disk := disks[0].(map[string]interface{})
 
-	name := disks[0]["name"].(string)
-	vhd_uri := disks[0]["vhd_url"].(string)
-	create_option := disks[0]["create_option"].(string)
-	os_disk := compute.OSDisk{
+	name := disk["name"].(string)
+	vhdURI := disk["vhd_url"].(string)
+	createOption := disk["create_option"].(string)
+
+	osDisk := &compute.OSDisk{
 		Name: &name,
 		Vhd: &compute.VirtualHardDisk{
-			URI: &vhd_uri,
+			URI: &vhdURI,
 		},
-		CreateOption: compute.DiskCreateOptionTypes(create_option),
+		CreateOption: compute.DiskCreateOptionTypes(createOption),
 	}
 
-	if v := disks[0]["cachine"].(string); v != "" {
-		os_disk.Caching = compute.CachingTypes(v)
+	if v := disk["caching"].(string); v != "" {
+		osDisk.Caching = compute.CachingTypes(v)
 	}
 
-	return os_disk
+	return osDisk, nil
 }
