@@ -144,7 +144,6 @@ func TestConfigValidate_countBadContext(t *testing.T) {
 
 	expected := []string{
 		"no_count_in_output: count variables are only valid within resources",
-		"no_count_in_module: count variables are only valid within resources",
 	}
 	for _, exp := range expected {
 		if !strings.Contains(err.Error(), exp) {
@@ -199,6 +198,15 @@ func TestConfigValidate_countVarInvalid(t *testing.T) {
 	c := testConfig(t, "validate-count-var-invalid")
 	if err := c.Validate(); err == nil {
 		t.Fatal("should not be valid")
+	}
+}
+
+func TestConfigValidate_countVarInModule(t *testing.T) {
+	c := testConfig(t, "validate-module-count-var")
+
+	err := c.Validate()
+	if err != nil {
+		t.Fatalf("err: %s", err)
 	}
 }
 

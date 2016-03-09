@@ -353,9 +353,6 @@ func (c *Config) Validate() error {
 		// Check for invalid count variables
 		for _, v := range m.RawConfig.Variables {
 			switch v.(type) {
-			case *CountVariable:
-				errs = append(errs, fmt.Errorf(
-					"%s: count variables are only valid within resources", m.Name))
 			case *SelfVariable:
 				errs = append(errs, fmt.Errorf(
 					"%s: self variables are only valid within resources", m.Name))
