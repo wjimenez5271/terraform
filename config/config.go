@@ -54,6 +54,7 @@ type AtlasConfig struct {
 type Module struct {
 	Name      string
 	Source    string
+	RawCount  *RawConfig
 	RawConfig *RawConfig
 }
 
@@ -699,6 +700,16 @@ func (c *Config) validateVarContextFn(
 			}
 		}
 	}
+}
+
+// Count returns the count of this module.
+func (m *Module) Count() (int, error) {
+	v, err := strconv.ParseInt(m.RawCount.Value().(string), 0, 0)
+	if err != nil {
+		return 0, err
+	}
+
+	return int(v), nil
 }
 
 func (m *Module) mergerName() string {

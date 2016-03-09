@@ -270,6 +270,7 @@ func loadModulesHcl(list *ast.ObjectList) ([]*Module, error) {
 		}
 
 		// Remove the fields we handle specially
+		delete(config, "count")
 		delete(config, "source")
 
 		rawConfig, err := NewRawConfig(config)
@@ -292,9 +293,29 @@ func loadModulesHcl(list *ast.ObjectList) ([]*Module, error) {
 			}
 		}
 
+		// If we have a count, then figure it out
+		var count string = "1"
+		if o := listVal.Filter("count"); len(o.Items) > 0 {
+			err = hcl.DecodeObject(&count, o.Items[0].Val)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"Error parsing count for module %s: %s",
+					k,
+					err)
+			}
+		}
+		countConfig, err := NewRawConfig(map[string]interface{}{
+			"count": count,
+		})
+		if err != nil {
+			return nil, err
+		}
+		countConfig.Key = "count"
+
 		result = append(result, &Module{
 			Name:      k,
 			Source:    source,
+			RawCount:  countConfig,
 			RawConfig: rawConfig,
 		})
 	}

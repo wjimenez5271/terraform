@@ -86,6 +86,36 @@ func TestConfigCount_var(t *testing.T) {
 	}
 }
 
+func TestConfigModuleCount(t *testing.T) {
+	c := testConfig(t, "module-count-int")
+	actual, err := c.Modules[0].Count()
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+	if actual != 5 {
+		t.Fatalf("bad: %#v", actual)
+	}
+}
+
+func TestConfigModuleCount_string(t *testing.T) {
+	c := testConfig(t, "module-count-string")
+	actual, err := c.Modules[0].Count()
+	if err != nil {
+		t.Fatalf("err: %s", err)
+	}
+	if actual != 5 {
+		t.Fatalf("bad: %#v", actual)
+	}
+}
+
+func TestConfigModuleCount_var(t *testing.T) {
+	c := testConfig(t, "module-count-var")
+	_, err := c.Modules[0].Count()
+	if err == nil {
+		t.Fatalf("should error")
+	}
+}
+
 func TestConfigValidate(t *testing.T) {
 	c := testConfig(t, "validate-good")
 	if err := c.Validate(); err != nil {
