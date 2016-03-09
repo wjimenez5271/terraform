@@ -37,6 +37,9 @@ type ModuleVariable struct {
 	Name  string
 	Field string
 	key   string
+
+	Multi bool // True if multi-variable: module.foo.*.id
+	Index int  // Index for multi-variable: module.foo.1.id == 1
 }
 
 // A PathVariable is a variable that references path information about the
@@ -137,9 +140,32 @@ func NewModuleVariable(key string) (*ModuleVariable, error) {
 			key)
 	}
 
+	field := parts[2]
+	multi := false
+	var index int
+	if idx := strings.Index(field, "."); idx != -1 {
+		indexStr := field[:idx]
+		multi = indexStr == "*"
+		index = -1
+
+		if !multi {
+			indexInt, err := strconv.ParseInt(indexStr, 0, 0)
+			if err == nil {
+				multi = true
+				index = int(indexInt)
+			}
+		}
+
+		if multi {
+			field = field[idx+1:]
+		}
+	}
+
 	return &ModuleVariable{
 		Name:  parts[1],
-		Field: parts[2],
+		Field: field,
+		Multi: multi,
+		Index: index,
 		key:   key,
 	}, nil
 }

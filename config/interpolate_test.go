@@ -31,6 +31,39 @@ func TestNewInterpolatedVariable(t *testing.T) {
 			false,
 		},
 		{
+			"module.foo.*.bar",
+			&ModuleVariable{
+				Name:  "foo",
+				Field: "bar",
+				Multi: true,
+				Index: -1,
+				key:   "module.foo.*.bar",
+			},
+			false,
+		},
+		{
+			"module.foo.0.bar",
+			&ModuleVariable{
+				Name:  "foo",
+				Field: "bar",
+				Multi: true,
+				Index: 0,
+				key:   "module.foo.0.bar",
+			},
+			false,
+		},
+		{
+			"module.foo.5.bar",
+			&ModuleVariable{
+				Name:  "foo",
+				Field: "bar",
+				Multi: true,
+				Index: 5,
+				key:   "module.foo.5.bar",
+			},
+			false,
+		},
+		{
 			"count.index",
 			&CountVariable{
 				Type: CountValueIndex,
