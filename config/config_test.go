@@ -223,6 +223,14 @@ func TestConfigValidate_dupResource(t *testing.T) {
 	}
 }
 
+func TestConfigValidate_moduleCountResourceVar(t *testing.T) {
+	// We only test this case because we assume it is calling validateCount
+	c := testConfig(t, "validate-module-count-resource-var")
+	if err := c.Validate(); err == nil {
+		t.Fatal("should not be valid")
+	}
+}
+
 func TestConfigValidate_moduleNameBad(t *testing.T) {
 	c := testConfig(t, "validate-module-name-bad")
 	if err := c.Validate(); err == nil {
