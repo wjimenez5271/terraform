@@ -955,7 +955,7 @@ func TestWriteStateTFVersion(t *testing.T) {
 		},
 		{
 			"",
-			Version,
+			"",
 			false,
 		},
 		{
