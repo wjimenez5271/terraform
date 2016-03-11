@@ -1,5 +1,5 @@
-variable "count" {}
+variable "rcount" {}
 
 resource "aws_instance" "foo" {
-  count = "${var.count}"
+  count = "${var.rcount}"
 }
