@@ -142,24 +142,6 @@ func (n *graphNodeModuleExpanded) DotNode(name string, opts *GraphDotOpts) *dot.
 	})
 }
 
-// GraphNodeEvalable impl.
-func (n *graphNodeModuleExpanded) EvalTree() EvalNode {
-	var resourceConfig *ResourceConfig
-	return &EvalSequence{
-		Nodes: []EvalNode{
-			&EvalInterpolate{
-				Config: n.Original.Module.RawConfig,
-				Output: &resourceConfig,
-			},
-
-			&EvalVariableBlock{
-				Config:    &resourceConfig,
-				Variables: n.Variables,
-			},
-		},
-	}
-}
-
 // GraphNodeFlattenable impl.
 func (n *graphNodeModuleExpanded) FlattenGraph() *Graph {
 	graph := n.Subgraph()
