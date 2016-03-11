@@ -885,6 +885,49 @@ func TestReadStateTFVersion(t *testing.T) {
 	}
 }
 
+func TestWriteStateTFVersion(t *testing.T) {
+	cases := []struct {
+		Write string
+		Read  string
+		Err   bool
+	}{
+		{
+			"0.0.0",
+			"0.0.0",
+			false,
+		},
+		{
+			"",
+			Version,
+			false,
+		},
+		{
+			"bad",
+			"",
+			true,
+		},
+	}
+
+	for _, tc := range cases {
+		var buf bytes.Buffer
+		if err := WriteState(&State{TFVersion: tc.Write}, &buf); err != nil {
+			t.Fatalf("err: %v", err)
+		}
+
+		s, err := ReadState(&buf)
+		if (err != nil) != tc.Err {
+			t.Fatalf("%s: err: %s", tc.Write, err)
+		}
+		if err != nil {
+			continue
+		}
+
+		if s.TFVersion != tc.Read {
+			t.Fatalf("%s: bad: %s", tc.Write, s.TFVersion)
+		}
+	}
+}
+
 func TestUpgradeV1State(t *testing.T) {
 	old := &StateV1{
 		Outputs: map[string]string{
