@@ -173,6 +173,22 @@ func Test(t TestT, c TestCase) {
 	}
 }
 
+// UnitTest is a helper to force the acceptance testing harness to run in the
+// normal unit test suite. This should only be used for resource that don't
+// have any external dependencies.
+func UnitTest(t TestT, c TestCase) {
+	oldEnv := os.Getenv(TestEnvVar)
+	if err := os.Setenv(TestEnvVar, "UnitTestOverride"); err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := os.Setenv(TestEnvVar, oldEnv); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	Test(t, c)
+}
+
 func testStep(
 	opts terraform.ContextOpts,
 	state *terraform.State,
