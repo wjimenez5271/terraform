@@ -22,6 +22,12 @@ func (n *EvalIgnoreChanges) Eval(ctx EvalContext) (interface{}, error) {
 	diff := *n.Diff
 	ignoreChanges := n.Resource.Lifecycle.IgnoreChanges
 
+	// If we're just creating the resource, we shouldn't alter the
+	// Diff at all
+	if diff.ChangeType() == DiffCreate {
+		return nil, nil
+	}
+
 	for _, ignoredName := range ignoreChanges {
 		for name := range diff.Attributes {
 			if strings.HasPrefix(name, ignoredName) {
