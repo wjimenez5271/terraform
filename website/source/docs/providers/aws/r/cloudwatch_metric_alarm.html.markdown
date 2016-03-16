@@ -28,7 +28,7 @@ resource "aws_cloudwatch_metric_alarm" "foobar" {
 
 ## Example in Conjunction with Scaling Policies
 ```
-resource "aws_autoscaling_policy" "bat" {
+resource "aws_autoscaling_policy" "bar" {
     name = "foobar3-terraform-test"
     scaling_adjustment = 4
     adjustment_type = "ChangeInCapacity"
@@ -36,7 +36,7 @@ resource "aws_autoscaling_policy" "bat" {
     autoscaling_group_name = "${aws_autoscaling_group.bar.name}"
 }
 
-resource "aws_cloudwatch_metric_alarm" "bat" {
+resource "aws_cloudwatch_metric_alarm" "bar" {
     alarm_name = "terraform-test-foobar5"
     comparison_operator = "GreaterThanOrEqualToThreshold"
     evaluation_periods = "2"
